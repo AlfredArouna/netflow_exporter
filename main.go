@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-    "strings"
+        "strings"
 	"sync"
 	"time"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/tehmaze/netflow/netflow5"
 	"github.com/tehmaze/netflow/netflow9"
 	"github.com/tehmaze/netflow/session"
+	"ipdb"
 )
 
 var (
@@ -39,6 +40,15 @@ var (
 			Help: "Unix timestamp of the last processed netflow metric.",
 		},
 	)
+
+	//IPDB flags
+	lan_net		 = flag.String("lan.prefix", ipdb.LanPrefix, "Prefix that should be considered as LAN.")
+	lan_asn          = flag.Int64("lan.asn", ipdb.LanAsn, "ASN that should be considered as LAN.")
+        lan_asn_name     = flag.String("lan.asn-name", ipdb.LanAsnName, "ASN Name that should be considered as LAN.")
+        private_asn      = flag.Int64("private.asn", ipdb.PrivateAsn, "ASN that should be considered for private IPs (except your LAN).")
+        private_asn_name = flag.String("private.asn-name", ipdb.PrivateAsnName, "ASN Name that should be considered for private IPs (except your LAN).")
+        storage_file     = flag.String("storage.file", ipdb.PrefixDbFile, "File to store or retrive IP data.")
+        refresh_info     = flag.Int64("data-expiry", ipdb.Week, "How long IP information in your local file is valid for.")
 )
 
 type netflowSample struct {
@@ -115,6 +125,7 @@ func (c *netflowCollector) processReader(udpSock *net.UDPConn) {
 			}
 
 		case *netflow9.Packet:
+			//log.Infoln("NetFlow 9")
 			for _, set := range p.DataFlowSets {
 				for _, record := range set.Records {
 					labels := prometheus.Labels{}
@@ -134,6 +145,29 @@ func (c *netflowCollector) processReader(udpSock *net.UDPConn) {
 						labels["From"] = srcAddress.IP.String()
 						labels["TemplateID"] = fmt.Sprintf("%d",record.TemplateID)
 						labels["NetflowVersion"] = "9"
+
+						//log.Infoln(labels["sourceIPv4Address"])
+						//log.Infoln(labels["destinationIPv4Address"])
+						
+						// Add IP data
+						if labels["sourceIPv4Address"] != "" && labels["destinationIPv4Address"] != "" {
+							ip_data := ipdb.GetIpInfo(labels["sourceIPv4Address"], *lan_net, *lan_asn, *lan_asn_name,
+							*private_asn, *private_asn_name, *storage_file, *refresh_info )
+							log.Infoln(ip_data)
+							labels["sourceAS"] = fmt.Sprintf("%d",ip_data.Asn)
+							labels["sourceCountry"] = ip_data.Country
+							labels["sourceRegistry"] = ip_data.Registry
+							labels["sourcePrefix"] = ip_data.Prefix
+							labels["sourceAsnName"] = ip_data.AsnName
+							ip_data = ipdb.GetIpInfo(labels["destinationIPv4Address"], *lan_net, *lan_asn, *lan_asn_name,
+                                                        *private_asn, *private_asn_name, *storage_file, *refresh_info )
+                                                	log.Infoln(ip_data)
+							labels["destinationAS"] = fmt.Sprintf("%d",ip_data.Asn)
+							labels["destinationCountry"] = ip_data.Country
+                                                        labels["destinationRegistry"] = ip_data.Registry
+                                                        labels["destinationPrefix"] = ip_data.Prefix
+                                                        labels["destinationAsnName"] = ip_data.AsnName
+						}
 
 						sample := &netflowSample{
 							Labels:      labels,
