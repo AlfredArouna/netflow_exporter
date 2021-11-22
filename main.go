@@ -153,15 +153,16 @@ func (c *netflowCollector) processReader(udpSock *net.UDPConn) {
 						if labels["sourceIPv4Address"] != "" && labels["destinationIPv4Address"] != "" {
 							ip_data := ipdb.GetIpInfo(labels["sourceIPv4Address"], *lan_net, *lan_asn, *lan_asn_name,
 							*private_asn, *private_asn_name, *storage_file, *refresh_info )
-							log.Infoln(ip_data)
+							//log.Infoln(ip_data)
 							labels["sourceAS"] = fmt.Sprintf("%d",ip_data.Asn)
 							labels["sourceCountry"] = ip_data.Country
 							labels["sourceRegistry"] = ip_data.Registry
 							labels["sourcePrefix"] = ip_data.Prefix
 							labels["sourceAsnName"] = ip_data.AsnName
+							
 							ip_data = ipdb.GetIpInfo(labels["destinationIPv4Address"], *lan_net, *lan_asn, *lan_asn_name,
                                                         *private_asn, *private_asn_name, *storage_file, *refresh_info )
-                                                	log.Infoln(ip_data)
+                                                	//log.Infoln(ip_data)
 							labels["destinationAS"] = fmt.Sprintf("%d",ip_data.Asn)
 							labels["destinationCountry"] = ip_data.Country
                                                         labels["destinationRegistry"] = ip_data.Registry
